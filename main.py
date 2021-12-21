@@ -467,7 +467,8 @@ def start_schedule():
             time.sleep(1)
 
 
-updater = Updater('2118643730:AAFLO8GyzQQDIFI1nmS2_hPdqgh-De4WGrs')
+updater = Updater('5001761976:AAGS6CPcQ6WbMUN7SVLrPHWif7Sf-Ns7spg')
+
 if __name__ == '__main__':
 
     while True:
