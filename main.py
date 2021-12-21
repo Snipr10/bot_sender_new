@@ -6,6 +6,7 @@ import sqlite3
 import datetime
 from sqlite3 import IntegrityError
 
+import pytz
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Poll
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
@@ -230,9 +231,9 @@ def menu_actions(update, bot):
                         db_save_week(chat_id, thread, references, time, report_text)
                     else:
                         db_save_month(chat_id, thread, references, time, report_text)
-                    now = datetime.datetime.now()
+                    now = get_time_now()
                     time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]), int(data_split[5]))
-                    if 0 < (time_datetime - datetime.datetime.now()).seconds < 300:
+                    if 0 < (time_datetime - get_time_now()).seconds < 300:
                         uri = URL % (period_s.get(data_split[0]), thread) + references
                         print(title)
                         threading.Thread(target=send_message_time, args=(uri, time_datetime, chat_id, report_text)).start()
@@ -420,7 +421,7 @@ def send_message_time(uri, time_, chat_id, report_text):
         print(uri)
         print(time_)
         i, file_name = get_report(uri)
-        sleep_time = (time_ - datetime.datetime.now()).seconds + 5
+        sleep_time = (time_ - get_time_now()).seconds + 5
         if sleep_time > 0:
             time.sleep(sleep_time)
         print("send" + str(uri))
@@ -435,9 +436,9 @@ def send_message_time(uri, time_, chat_id, report_text):
 
 def send_messages_time():
     try:
-        print("send_messages_time" + str(datetime.datetime.now()))
+        print("send_messages_time" + str(get_time_now()))
 
-        now = datetime.datetime.now()
+        now = get_time_now()
         conn = sqlite3.connect('database.db', check_same_thread=False)
         cursor = conn.cursor()
         days = cursor.execute(f"select * from days").fetchall()
@@ -456,19 +457,26 @@ def send_messages_time():
 
 
 def start_schedule():
-    time.sleep(305 - int(datetime.datetime.now().timestamp()) % 300)
-    print(datetime.datetime.now())
+    time.sleep(305 - int(get_time_now().timestamp()) % 300)
+    print(get_time_now())
     while True:
         try:
             send_messages_time()
-            time.sleep(300 - int(datetime.datetime.now().timestamp()) % 300)
+            time.sleep(300 - int(get_time_now().timestamp()) % 300)
         except Exception as e:
             print(e)
             time.sleep(1)
 
 
-updater = Updater('2118643730:AAFLO8GyzQQDIFI1nmS2_hPdqgh-De4WGrs')
+def get_time_now():
+    return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
+
+
+updater = Updater('5001761976:AAGS6CPcQ6WbMUN7SVLrPHWif7Sf-Ns7spg')
+
 if __name__ == '__main__':
+
+    print(get_time_now())
 
     while True:
         SESSION = login(SESSION)
