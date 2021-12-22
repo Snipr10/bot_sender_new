@@ -469,8 +469,8 @@ def start_schedule():
 
 
 def get_time_now():
-    return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
-
+    # return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
+    return datetime.datetime.now() + datetime.timedelta(hours=3)
 
 updater = Updater('5001761976:AAGS6CPcQ6WbMUN7SVLrPHWif7Sf-Ns7spg')
 
