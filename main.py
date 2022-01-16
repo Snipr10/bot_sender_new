@@ -91,37 +91,50 @@ def start(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(f'Добрый день! \nЯ буду помогать Вам с отчетами. \n /create_report')
 
 
-def create_report(update: Update, context: CallbackContext) -> None:
-    menu_main = [[InlineKeyboardButton('День', callback_data='1_d')],
-                 [InlineKeyboardButton('Неделя', callback_data='2_d')],
-                 [InlineKeyboardButton('Месяц', callback_data='3_d')]]
+def chek_user_db(update):
+    if not get_user_id(str(update.message.from_user.id)):
+        update.message.reply_text(f'Не могу Вас найти. Возможно вы удалили свой аккаунт, войдите еще раз или обратитесь к администраторам')
+        return False
+    return True
 
-    reply_markup = InlineKeyboardMarkup(menu_main)
-    update.message.reply_text('Выберите период отчета:', reply_markup=reply_markup)
+
+def create_report(update: Update, context: CallbackContext) -> None:
+
+    if chek_user_db(update):
+        menu_main = [[InlineKeyboardButton('День', callback_data='1_d')],
+                     [InlineKeyboardButton('Неделя', callback_data='2_d')],
+                     [InlineKeyboardButton('Месяц', callback_data='3_d')]]
+
+        reply_markup = InlineKeyboardMarkup(menu_main)
+        update.message.reply_text('Выберите период отчета:', reply_markup=reply_markup)
 
 
 def delete(update: Update, context: CallbackContext) -> None:
-    chat_id = update.message.chat_id
-    db_delete_week(chat_id)
-    db_delete_day(chat_id)
-    db_delete_month(chat_id)
-    db_delete_chat_id(chat_id)
+    if chek_user_db(update):
+        chat_id = update.message.chat_id
+        db_delete_week(chat_id)
+        db_delete_day(chat_id)
+        db_delete_month(chat_id)
+        db_delete_chat_id(chat_id)
+        update.message.reply_text("Вы удалили свой аккаунт")
 
 
 def delete_report(update: Update, context: CallbackContext) -> None:
-    menu_main = []
-    chat_id = str(update.message.chat_id)
-    if get_day_id(chat_id):
-        menu_main.append([InlineKeyboardButton("Дневной отчет", callback_data='1_r')])
-    if get_week_id(chat_id):
-        menu_main.append([InlineKeyboardButton("Недельный отчет", callback_data='2_r')])
-    if get_month_id(chat_id):
-        menu_main.append([InlineKeyboardButton("Месячный отчет", callback_data='3_r')])
-    if len(menu_main) > 0:
-        reply_markup = InlineKeyboardMarkup(menu_main)
-        update.message.reply_text('Выберите период отчета:', reply_markup=reply_markup, parse_mode='Markdown')
-    else:
-        update.message.reply_text('У Вас нет сохраненных отчетов')
+    if chek_user_db(update):
+
+        menu_main = []
+        chat_id = str(update.message.chat_id)
+        if get_day_id(chat_id):
+            menu_main.append([InlineKeyboardButton("Дневной отчет", callback_data='1_r')])
+        if get_week_id(chat_id):
+            menu_main.append([InlineKeyboardButton("Недельный отчет", callback_data='2_r')])
+        if get_month_id(chat_id):
+            menu_main.append([InlineKeyboardButton("Месячный отчет", callback_data='3_r')])
+        if len(menu_main) > 0:
+            reply_markup = InlineKeyboardMarkup(menu_main)
+            update.message.reply_text('Выберите период отчета:', reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            update.message.reply_text('У Вас нет сохраненных отчетов')
 
 
 def add_hour(m):
