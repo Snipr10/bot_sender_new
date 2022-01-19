@@ -62,7 +62,7 @@ def get_objects(user_id, query_data):
     menu_main = []
     i = 1
     for item in items_id:
-        menu_main.append([InlineKeyboardButton(item.get("keyword"),
+        menu_main.append([InlineKeyboardButton(item.get("keyword").replace('"', ""),
                                                callback_data=f'{query_data}_{i}_t')])
         i += 1
 
@@ -211,12 +211,12 @@ def menu_actions(update, bot):
         reply_markup = get_objects(user_id, query.data)
         query.edit_message_text('Выберите объекты:', reply_markup=reply_markup)
     elif query.data[-1] == 'p':
-        json_data = json.loads(str(update.effective_message.reply_markup).replace("\'", '"'))
+        json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
         check_ = False
         teams = []
         for d in json_data['inline_keyboard']:
             ok = u'\u2705'
-            if ok in d[0]["text"]:
+            if ok in d[0]["text"].replace('"', ""):
                 check_ = True
                 teams.append(d[0]["text"].replace(ok, ""))
         if check_:
@@ -272,7 +272,7 @@ def menu_actions(update, bot):
 
     elif "t" in query.data:
         menu_main = []
-        json_data = json.loads(str(update.effective_message.reply_markup).replace("\'", '"'))
+        json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
         i = 1
         for d in json_data['inline_keyboard']:
             ok = u'\u2705'
@@ -306,7 +306,7 @@ def send_message(period_, teams, bot, chat_id, user_id, text):
     items_id = get_items_by_id(user_id)
     for team in teams:
         for item_id in items_id:
-            if team == item_id.get("keyword"):
+            if team == item_id.get("keyword").replace('"', ""):
                 uri += f"&reference_ids[]={item_id.get('id')}"
                 break
     i, file_name = get_report(uri)
