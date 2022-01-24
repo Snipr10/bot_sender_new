@@ -48,23 +48,48 @@ def get_threads_by_id(user_id):
     return response.json()[0]
 
 
-def get_items_by_id(user_id):
+def get_items_by_id(user_id, all = False):
     response_json = SESSION.post(REFERENCES_URL, json={
         "group_id": user_id,
         "is_user_id": True
     }).json()
     # + response_json[3].get("items", [])
+    if all:
+        return response_json
     return response_json[1].get("items", [])
 
 
 def get_objects(user_id, query_data):
-    items_id = get_items_by_id(user_id)
+    items_id = get_items_by_id(user_id, True)
     menu_main = []
+
     i = 1
-    for item in items_id:
-        menu_main.append([InlineKeyboardButton(item.get("keyword").replace('"', ""),
-                                               callback_data=f'{query_data}_{i}_t')])
+    sob = items_id[1].get("items", [])
+    su = items_id[3].get("items", [])
+    k = len(sob) + 2
+    first_button_row = sob
+    flast_button_row = su
+    for item in range(0, max(len(sob), len(su))):
+        try:
+            menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
+                                                   callback_data=f'{query_data}_{i}_t'),
+                              InlineKeyboardButton(flast_button_row[item].get("keyword").replace('"', ""),
+                                                   callback_data=f'{query_data}_{k}_t')])
+        except Exception:
+            try:
+                menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
+                                                       callback_data=f'{query_data}_{i}_t'),
+                                  InlineKeyboardButton(" ",
+                                                       callback_data=f'{query_data}_{k}_t')]
+                                 )
+            except Exception:
+                menu_main.append([InlineKeyboardButton(" ",
+                                                       callback_data=f'{query_data}_{i}_t'),
+                                  InlineKeyboardButton(flast_button_row[item].get("keyword").replace('"', ""),
+                                                       callback_data=f'{query_data}_{k}_t')])
         i += 1
+        k += 1
+
 
     menu_main.append([InlineKeyboardButton('Ok', callback_data=f'{query_data}_stop')])
 
@@ -209,16 +234,21 @@ def menu_actions(update, bot):
     elif query.data[-1] == 'n':
         user_id = get_user_id(str(query.from_user.id))
         reply_markup = get_objects(user_id, query.data)
-        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup)
+        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup,)
     elif query.data[-1] == 'p':
-        json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
+
+        # json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
         check_ = False
         teams = []
-        for d in json_data['inline_keyboard']:
+        for d in update.effective_message.reply_markup["inline_keyboard"]:
+
             ok = u'\u2705'
             if ok in d[0]["text"].replace('"', ""):
                 check_ = True
                 teams.append(d[0]["text"].replace(ok, ""))
+            elif len(d) > 1 and ok in d[1]["text"].replace('"', ""):
+                check_ = True
+                teams.append(d[1]["text"].replace(ok, ""))
         if check_:
             repost_teams = "\n".join(teams)
             if query.data[0] != 's':
@@ -227,11 +257,15 @@ def menu_actions(update, bot):
                 time = f"{data_split[3]}:{data_split[5]}"
                 chat_id = str(query.from_user.id)
                 user_id = get_user_id(str(query.from_user.id))
-                items_id = get_items_by_id(user_id)
+                items_id = get_items_by_id(user_id, True)
                 references = ""
                 for team in teams:
-                    for item_id in items_id:
-                        if team == item_id.get("keyword"):
+                    for item_id in items_id[1]["items"]:
+                        if team == item_id.get("keyword").replace('"', ""):
+                            references += f"&reference_ids[]={item_id.get('id')}"
+                            break
+                    for item_id in items_id[3]["items"]:
+                        if team == item_id.get("keyword").replace('"', ""):
                             references += f"&reference_ids[]={item_id.get('id')}"
                             break
                 thread = get_threads_by_id(int(user_id))
@@ -248,7 +282,6 @@ def menu_actions(update, bot):
                     time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]), int(data_split[5]))
                     if 0 < (time_datetime - get_time_now()).seconds < 300:
                         uri = URL % (period_s.get(data_split[0]), thread) + references
-                        print(title)
                         threading.Thread(target=send_message_time, args=(uri, time_datetime, chat_id, report_text)).start()
                     text = f"*Отчет сохранен:* \n*Период*: {title} \n*Время*: {time} \n*Темы*: " + "\n".join(teams)
                     query.edit_message_text(text, parse_mode='Markdown')
@@ -262,29 +295,49 @@ def menu_actions(update, bot):
                 threading.Thread(target=send_message, args=(
                     period_, teams, query.bot, query.message.chat_id, get_user_id(str(query.from_user.id)), report_text)).start()
         else:
-            menu_main = []
-            for d in json_data['inline_keyboard']:
-                menu_main.append([InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data'])])
-            reply_markup = InlineKeyboardMarkup(menu_main)
+            reply_markup = InlineKeyboardMarkup(update.effective_message.reply_markup["inline_keyboard"])
             query.edit_message_text(
                 text='Вы не выбрали объекты. \nПожалуйста, выберите объекты:',
                 reply_markup=reply_markup)
 
     elif "t" in query.data:
         menu_main = []
-        json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
+        # json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
         i = 1
-        for d in json_data['inline_keyboard']:
+        for d in update.effective_message.reply_markup["inline_keyboard"]:
             ok = u'\u2705'
             if query.data in d[0]['callback_data']:
                 if ok in d[0]["text"]:
                     menu_main.append(
-                        [InlineKeyboardButton(d[0]["text"].replace(ok, ""), callback_data=d[0]['callback_data'])])
+                        [InlineKeyboardButton(d[0]["text"].replace(ok, ""), callback_data=d[0]['callback_data']),
+                         InlineKeyboardButton(d[1]["text"], callback_data=d[1]['callback_data']),
+                         ])
                 else:
-                    menu_main.append([InlineKeyboardButton(f'{ok}{d[0]["text"]}', callback_data=d[0]['callback_data'])])
-
+                    menu_main.append(
+                        [InlineKeyboardButton(f'{ok}{d[0]["text"]}', callback_data=d[0]['callback_data']),
+                         InlineKeyboardButton(d[1]["text"], callback_data=d[1]['callback_data']),
+                         ])
+            elif len(d) > 1 and query.data in d[1]['callback_data']:
+                if ok in d[1]["text"]:
+                    menu_main.append(
+                        [InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data']),
+                         InlineKeyboardButton(d[1]["text"].replace(ok, ""), callback_data=d[1]['callback_data']),
+                         ])
+                else:
+                    menu_main.append(
+                        [InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data']),
+                         InlineKeyboardButton(f'{ok}{d[1]["text"]}', callback_data=d[1]['callback_data']),
+                         ])
             else:
-                menu_main.append([InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data'])])
+                if len(d) > 1:
+                    menu_main.append(
+                        [InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data']),
+                         InlineKeyboardButton(d[1]["text"], callback_data=d[1]['callback_data'])
+                         ])
+                else:
+                    menu_main.append(
+                        [InlineKeyboardButton(d[0]["text"], callback_data=d[0]['callback_data']),
+                         ])
             i += 1
         reply_markup = InlineKeyboardMarkup(menu_main)
         query.edit_message_text(
@@ -303,9 +356,13 @@ def get_report(uri):
 
 def send_message(period_, teams, bot, chat_id, user_id, text):
     uri = URL % (period_s.get(period_), get_threads_by_id(user_id))
-    items_id = get_items_by_id(user_id)
+    items_id = get_items_by_id(user_id, True)
     for team in teams:
-        for item_id in items_id:
+        for item_id in items_id[1]["items"]:
+            if team == item_id.get("keyword").replace('"', ""):
+                uri += f"&reference_ids[]={item_id.get('id')}"
+                break
+        for item_id in items_id[3]["items"]:
             if team == item_id.get("keyword").replace('"', ""):
                 uri += f"&reference_ids[]={item_id.get('id')}"
                 break
@@ -426,6 +483,7 @@ def check_and_send_message(now, d, period):
     time = datetime.datetime(now.year, now.month, now.day, int(h_r[0]), int(h_r[1]))
     if 0 < (time - now).seconds < 300:
         uri = URL % (period, d[1]) + d[2]
+        print(uri)
         threading.Thread(target=send_message_time, args=(uri, time, int(d[0]), d[4])).start()
 
 
