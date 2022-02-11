@@ -72,7 +72,7 @@ def get_objects(user_id, query_data):
     for item in range(0, max(len(sob), len(su))):
         try:
             menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
-                                                   callback_data=f'{query_data}_{i}_t'),
+                                                   callback_data=f"{query_data}_{i}_t"),
                               InlineKeyboardButton(flast_button_row[item].get("keyword").replace('"', ""),
                                                    callback_data=f'{query_data}_{k}_t')])
         except Exception:
