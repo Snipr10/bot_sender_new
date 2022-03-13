@@ -46,33 +46,37 @@ def login(session):
     return session
 
 
-def send_message_email(to, i, file_name):
+def send_message_email(email_to, file, file_name):
     port = 465
     context = ssl.create_default_context()
 
     msg = EmailMessage()
-    msg['Subject'] = 'This email contains an attachment'
+    msg['Subject'] = ' 12v Автоматическая рассылка отчёта по выбранным субъектам/событиям'
     msg['From'] = EMAIL
-    msg['To'] = to
+    msg['To'] = email_to
 
-    i.seek(0)
-    binary_data = i.read()
+    file.seek(0)
+    binary_data = file.read()
     maintype, _, subtype = (mimetypes.guess_type(file_name)[0] or 'application/octet-stream').partition("/")
     msg.add_attachment(binary_data, maintype=maintype, subtype=subtype, filename=file_name)
+    msg.set_content('Добрый день! \n'
+                    'В соответствии с выбранными вами временным интервалом и объектами мониторинга был'
+                    ' сформирован отчёт по запросу по следующим субъектам/событиям: \n'
+                    '*Перечисление субъектов/событий, которые выбрал ПС*')
 
     with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
         server.login(EMAIL, EMAIL_PASSWORD)
         server.send_message(msg)
 
 
-SESSION = login(requests.session())
-uri = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?period=day&thread_id=4205"
-report = SESSION.get(uri)
-i = BytesIO(report.content)
-file_name = bytes(
-        report.headers.get('Content-Disposition').replace("attachment;filename=", "").replace(
-            '"', ""), 'latin1').decode('utf-8')
-send_message_email('gusevoleg96@gmail.com', i, file_name)
+# SESSION = login(requests.session())
+# uri = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?period=day&thread_id=4205"
+# report = SESSION.get(uri)
+# i = BytesIO(report.content)
+# file_name = bytes(
+#         report.headers.get('Content-Disposition').replace("attachment;filename=", "").replace(
+#             '"', ""), 'latin1').decode('utf-8')
+# send_message_email('gusevoleg96@gmail.com', BytesIO(report.content), file_name)
 
 
 def get_email(user_id):
@@ -548,6 +552,9 @@ def send_message_time(uri, time_, chat_id, report_text):
                                   filename=file_name,
                                   caption=report_text
                                   )
+        # i = BytesIO(report.content)
+
+        send_message_email('gusevoleg96@gmail.com', i, file_name)
     except Exception as e:
         print(e)
 
