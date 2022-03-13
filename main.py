@@ -543,7 +543,7 @@ def get_time_now():
     # return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
     return datetime.datetime.now() + datetime.timedelta(hours=3)
 
-updater = Updater('5001761976:AAGS6CPcQ6WbMUN7SVLrPHWif7Sf-Ns7spg')
+updater = Updater('5001761976:AAFuf6iYpdM7hGDcrPpXuNGRSL3tN7FU76Q')
 
 if __name__ == '__main__':
 
