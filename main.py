@@ -46,29 +46,29 @@ def login(session):
     return session
 
 
-def send_message_email(email_to, file, file_name):
+def send_message_email(email_to, file, file_name, report_text):
     port = 465
     context = ssl.create_default_context()
 
     msg = EmailMessage()
-    msg['Subject'] = ' 12v Автоматическая рассылка отчёта по выбранным субъектам/событиям'
+    msg['Subject'] = 'Автоматическая рассылка отчёта по выбранным субъектам/событиям'
     msg['From'] = EMAIL
     msg['To'] = email_to
 
     file.seek(0)
     binary_data = file.read()
     maintype, _, subtype = (mimetypes.guess_type(file_name)[0] or 'application/octet-stream').partition("/")
-    msg.add_attachment(binary_data, maintype=maintype, subtype=subtype, filename=file_name)
     msg.set_content('Добрый день! \n'
                     'В соответствии с выбранными вами временным интервалом и объектами мониторинга был'
-                    ' сформирован отчёт по запросу по следующим субъектам/событиям: \n'
-                    '*Перечисление субъектов/событий, которые выбрал ПС*')
+                    f' сформирован отчёт по запросу по следующим субъектам/событиям: \n{report_text}'
+                    )
+    msg.add_attachment(binary_data, maintype=maintype, subtype=subtype, filename=file_name)
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
-        server.login(EMAIL, EMAIL_PASSWORD)
+    with smtplib.SMTP_SSL("smtp.glassen-it.com", port, context=context) as server:
+        server.login(EMAIL_LOGIN, EMAIL_PASSWORD)
         server.send_message(msg)
 
-
+# #
 # SESSION = login(requests.session())
 # uri = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?period=day&thread_id=4205"
 # report = SESSION.get(uri)
@@ -76,7 +76,7 @@ def send_message_email(email_to, file, file_name):
 # file_name = bytes(
 #         report.headers.get('Content-Disposition').replace("attachment;filename=", "").replace(
 #             '"', ""), 'latin1').decode('utf-8')
-# send_message_email('gusevoleg96@gmail.com', BytesIO(report.content), file_name)
+# send_message_email('gusevoleg96@gmail.com', BytesIO(report.content), file_name, "")
 
 
 def get_email(user_id):
@@ -119,7 +119,7 @@ def get_objects(user_id, query_data):
             menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
                                                    callback_data=f"{query_data}_{i}_t"),
                               InlineKeyboardButton(flast_button_row[item].get("keyword").replace('"', ""),
-                                                   callback_data=f"{query_data}_{k}_t")])
+                                                   callback_data=f'{query_data}_{k}_t')])
         except Exception:
             try:
                 menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
@@ -134,6 +134,7 @@ def get_objects(user_id, query_data):
                                                        callback_data=f'{query_data}_{k}_t')])
         i += 1
         k += 1
+
 
     menu_main.append([InlineKeyboardButton('Ok', callback_data=f'{query_data}_stop')])
 
@@ -170,6 +171,7 @@ def chek_user_db(update):
 
 
 def create_report(update: Update, context: CallbackContext) -> None:
+
     if chek_user_db(update):
         menu_main = [[InlineKeyboardButton('День', callback_data='1_d')],
                      [InlineKeyboardButton('Неделя', callback_data='2_d')],
@@ -279,7 +281,7 @@ def menu_actions(update, bot):
     elif query.data[-1] == 'n':
         user_id = get_user_id(str(query.from_user.id))
         reply_markup = get_objects(user_id, query.data)
-        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup, )
+        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup,)
     elif query.data[-1] == 'p':
 
         # json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
@@ -324,12 +326,10 @@ def menu_actions(update, bot):
                     else:
                         db_save_month(chat_id, thread, references, time, report_text)
                     now = get_time_now()
-                    time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]),
-                                                      int(data_split[5]))
+                    time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]), int(data_split[5]))
                     if 0 < (time_datetime - get_time_now()).seconds < 300:
                         uri = URL % (period_s.get(data_split[0]), thread) + references
-                        threading.Thread(target=send_message_time,
-                                         args=(uri, time_datetime, chat_id, report_text)).start()
+                        threading.Thread(target=send_message_time, args=(uri, time_datetime, chat_id, report_text)).start()
                     text = f"*Отчет сохранен:* \n*Период*: {title} \n*Время*: {time} \n*Темы*: " + "\n".join(teams)
                     query.edit_message_text(text, parse_mode='Markdown')
                 except IntegrityError:
@@ -340,8 +340,7 @@ def menu_actions(update, bot):
                 report_text = f"Период: {period.get(period_)} \nТемы: {repost_teams}"
 
                 threading.Thread(target=send_message, args=(
-                    period_, teams, query.bot, query.message.chat_id, get_user_id(str(query.from_user.id)),
-                    report_text)).start()
+                    period_, teams, query.bot, query.message.chat_id, get_user_id(str(query.from_user.id)), report_text)).start()
         else:
             reply_markup = InlineKeyboardMarkup(update.effective_message.reply_markup["inline_keyboard"])
             query.edit_message_text(
@@ -447,6 +446,15 @@ def get_user_id(chat_id):
     return users[0][0]
 
 
+def get_mail(chat_id):
+    conn = sqlite3.connect('database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    users = cursor.execute(f"select * from users WHERE `chat_id` = {chat_id}").fetchall()
+    if len(users) == 0:
+        return None
+    return users[0][2]
+
+
 def get_chat_id(user_id):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -547,14 +555,18 @@ def send_message_time(uri, time_, chat_id, report_text):
             time.sleep(sleep_time)
         print("send" + str(uri))
         # TODO send email
-        updater.bot.send_document(chat_id=chat_id,
-                                  document=i,
-                                  filename=file_name,
-                                  caption=report_text
-                                  )
-        # i = BytesIO(report.content)
-
-        send_message_email('gusevoleg96@gmail.com', i, file_name)
+        try:
+            updater.bot.send_document(chat_id=chat_id,
+                                      document=i,
+                                      filename=file_name,
+                                      caption=report_text
+                                      )
+        except Exception:
+            pass
+        try:
+            send_message_email(get_mail(chat_id), i, file_name, report_text)
+        except Exception as e:
+            print(e)
     except Exception as e:
         print(e)
 
