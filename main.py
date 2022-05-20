@@ -246,7 +246,7 @@ def menu_actions(update, bot):
             if ok in d[0]["text"].replace('"', ""):
                 check_ = True
                 teams.append(d[0]["text"].replace(ok, ""))
-            elif len(d) > 1 and ok in d[1]["text"].replace('"', ""):
+            if len(d) > 1 and ok in d[1]["text"].replace('"', ""):
                 check_ = True
                 teams.append(d[1]["text"].replace(ok, ""))
         if check_:
