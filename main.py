@@ -243,12 +243,18 @@ def menu_actions(update, bot):
         for d in update.effective_message.reply_markup["inline_keyboard"]:
 
             ok = u'\u2705'
-            if ok in d[0]["text"].replace('"', ""):
-                check_ = True
-                teams.append(d[0]["text"].replace(ok, ""))
-            if len(d) > 1 and ok in d[1]["text"].replace('"', ""):
-                check_ = True
-                teams.append(d[1]["text"].replace(ok, ""))
+            try:
+                if ok in d[0]["text"].replace('"', ""):
+                    check_ = True
+                    teams.append(d[0]["text"].replace(ok, ""))
+            except Exception:
+                pass
+            try:
+                if len(d) > 1 and ok in d[1]["text"].replace('"', ""):
+                    check_ = True
+                    teams.append(d[1]["text"].replace(ok, ""))
+            except Exception:
+                pass
         if check_:
             repost_teams = "\n".join(teams)
             if query.data[0] != 's':
