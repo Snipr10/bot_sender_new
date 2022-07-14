@@ -67,9 +67,19 @@ def get_objects(user_id, query_data):
     sob = items_id[1].get("items", [])
     su = items_id[3].get("items", [])
     k = len(sob) + 2
+
+    if len(sob) > 48:
+        if len(su) < 48:
+            su = sob[49:] + su
+
+    if len(su) > 48:
+        if len(sob) < 48:
+            added = 48-len(sob)
+            sob = sob + su[0:added]
+            su = su[added+1:]
     first_button_row = sob
     flast_button_row = su
-    for item in range(0, max(len(sob), len(su))):
+    for item in range(0, min(max(len(sob), len(su)), 48)):
         try:
             menu_main.append([InlineKeyboardButton(first_button_row[item].get("keyword").replace('"', ""),
                                                    callback_data=f"{query_data}_{i}_t"),
