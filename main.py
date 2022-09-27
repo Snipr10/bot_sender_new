@@ -43,6 +43,7 @@ def login(session):
             if not response.ok:
                 raise Exception("can not login")
         except Exception as e:
+            print(e)
             pass
     return session
 
