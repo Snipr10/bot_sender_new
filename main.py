@@ -28,8 +28,11 @@ type_report = {
 
 
 def login(session):
+    print("login")
     is_session_cookies= False
     while not is_session_cookies:
+        print("login")
+
         try:
             payload = {
                 "login": "superadmin",
