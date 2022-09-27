@@ -1,4 +1,3 @@
-import json
 import threading
 import time
 from io import BytesIO
@@ -6,15 +5,14 @@ import sqlite3
 import datetime
 from sqlite3 import IntegrityError
 
-import pytz
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Poll
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 
-LOGIN_URL = "https://api.glassen-it.com/component/socparser/authorization/login"
-THREADS_URL = "https://api.glassen-it.com/component/socparser/users/getuserthreads"
-REFERENCES_URL = "https://api.glassen-it.com/component/socparser/users/getreferences"
-URL = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?period=%s&thread_id=%s"
+LOGIN_URL = "https://isiao.glassen-it.com/component/socparser/authorization/login"
+THREADS_URL = "https://isiao.glassen-it.com/component/socparser/users/getuserthreads"
+REFERENCES_URL = "https://isiao.glassen-it.com/component/socparser/users/getreferences"
+URL = "https://isiao.glassen-it.com/component/socparser/content/getReportDocxRef?period=%s&thread_id=%s"
 
 SESSION = requests.session()
 
@@ -30,13 +28,18 @@ type_report = {
 
 
 def login(session):
-    payload = {
-        "login": "java_api",
-        "password": "4yEcwVnjEH7D"
-    }
-    response = session.post(LOGIN_URL, json=payload)
-    if not response.ok:
-        raise Exception("can not login")
+    is_session_cookies= False
+    while not is_session_cookies:
+        try:
+            payload = {
+                "login": "superadmin",
+                "password": "superadmin"
+            }
+            response = session.post(LOGIN_URL, json=payload)
+            if not response.ok:
+                raise Exception("can not login")
+        except Exception as e:
+            pass
     return session
 
 
@@ -559,7 +562,7 @@ def get_time_now():
     # return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
     return datetime.datetime.now() + datetime.timedelta(hours=3)
 
-updater = Updater('5001761976:AAFuf6iYpdM7hGDcrPpXuNGRSL3tN7FU76Q')
+updater = Updater('5761570096:AAHr5CPfv-bNlYD0UDocuTlnvkSNv1W6FFM')
 
 if __name__ == '__main__':
 
