@@ -38,7 +38,8 @@ def login(session):
                 "login": "superadmin",
                 "password": "superadmin"
             }
-            response = session.post(LOGIN_URL, json=payload)
+            response = session.post(LOGIN_URL, json=payload, headers={
+                'Content-Type': 'application/json'})
             if not response.ok:
                 raise Exception("can not login")
         except Exception as e:
