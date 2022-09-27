@@ -42,6 +42,8 @@ def login(session):
                 'Content-Type': 'application/json'})
             if not response.ok:
                 raise Exception("can not login")
+            is_session_cookies = False
+
         except Exception as e:
             print(e)
             pass
