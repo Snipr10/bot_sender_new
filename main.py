@@ -19,6 +19,7 @@ URL = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?p
 
 SESSION = requests.session()
 
+
 period = {"1": "дневной", "2": "недельный", "3": "месячный"}
 period_s = {"1": "day", "2": "week", "3": "month"}
 
@@ -99,6 +100,7 @@ def get_objects(user_id, query_data):
                                                        callback_data=f'{query_data}_{k}_t')])
         i += 1
         k += 1
+
 
     menu_main.append([InlineKeyboardButton('Ok', callback_data=f'{query_data}_stop')])
 
@@ -601,10 +603,9 @@ def start_schedule():
 
 def get_time_now():
     # return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
-    return datetime.datetime.now() + datetime.timedelta(hours=0)
+    return datetime.datetime.now() + datetime.timedelta(hours=3)
 
-
-updater = Updater('5761570096:AAFqWbshvEvG8tj-hEcPdtIfQ37WYtfQN2A')
+updater = Updater('5001761976:AAFuf6iYpdM7hGDcrPpXuNGRSL3tN7FU76Q')
 
 if __name__ == '__main__':
 
