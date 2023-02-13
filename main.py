@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+import uuid
 from io import BytesIO
 import sqlite3
 import datetime
@@ -17,7 +18,6 @@ REFERENCES_URL = "https://api.glassen-it.com/component/socparser/users/getrefere
 URL = "https://api.glassen-it.com/component/socparser/content/getReportDocxRef?period=%s&thread_id=%s"
 
 SESSION = requests.session()
-
 
 period = {"1": "дневной", "2": "недельный", "3": "месячный"}
 period_s = {"1": "day", "2": "week", "3": "month"}
@@ -48,7 +48,7 @@ def get_threads_by_id(user_id):
     return response.json()[0]
 
 
-def get_items_by_id(user_id, all = False):
+def get_items_by_id(user_id, all=False):
     response_json = SESSION.post(REFERENCES_URL, json={
         "group_id": user_id,
         "is_user_id": True
@@ -74,9 +74,9 @@ def get_objects(user_id, query_data):
 
     if len(su) > 48:
         if len(sob) < 48:
-            added = 48-len(sob)
+            added = 48 - len(sob)
             sob = sob + su[0:added]
-            su = su[added+1:]
+            su = su[added + 1:]
     first_button_row = sob
     flast_button_row = su
     for item in range(0, min(max(len(sob), len(su)), 48)):
@@ -99,7 +99,6 @@ def get_objects(user_id, query_data):
                                                        callback_data=f'{query_data}_{k}_t')])
         i += 1
         k += 1
-
 
     menu_main.append([InlineKeyboardButton('Ok', callback_data=f'{query_data}_stop')])
 
@@ -128,13 +127,13 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def chek_user_db(update):
     if not get_user_id(str(update.message.from_user.id)):
-        update.message.reply_text(f'Не могу Вас найти. Возможно вы удалили свой аккаунт, войдите еще раз или обратитесь к администраторам')
+        update.message.reply_text(
+            f'Не могу Вас найти. Возможно вы удалили свой аккаунт, войдите еще раз или обратитесь к администраторам')
         return False
     return True
 
 
 def create_report(update: Update, context: CallbackContext) -> None:
-
     if chek_user_db(update):
         menu_main = [[InlineKeyboardButton('День', callback_data='1_d')],
                      [InlineKeyboardButton('Неделя', callback_data='2_d')],
@@ -147,9 +146,9 @@ def create_report(update: Update, context: CallbackContext) -> None:
 def delete(update: Update, context: CallbackContext) -> None:
     if chek_user_db(update):
         chat_id = update.message.chat_id
-        db_delete_week(chat_id)
-        db_delete_day(chat_id)
-        db_delete_month(chat_id)
+        db_delete_period(chat_id, "days")
+        db_delete_period(chat_id, "weeks")
+        db_delete_period(chat_id, "months")
         db_delete_chat_id(chat_id)
         update.message.reply_text("Вы удалили свой аккаунт")
 
@@ -159,12 +158,37 @@ def delete_report(update: Update, context: CallbackContext) -> None:
 
         menu_main = []
         chat_id = str(update.message.chat_id)
-        if get_day_id(chat_id):
-            menu_main.append([InlineKeyboardButton("Дневной отчет", callback_data='1_r')])
-        if get_week_id(chat_id):
-            menu_main.append([InlineKeyboardButton("Недельный отчет", callback_data='2_r')])
-        if get_month_id(chat_id):
-            menu_main.append([InlineKeyboardButton("Месячный отчет", callback_data='3_r')])
+        day_chat_ids = get_day_ids(chat_id)
+        week_chat_ids = get_week_ids(chat_id)
+        month_chat_ids = get_month_ids(chat_id)
+        for day_report in day_chat_ids:
+            menu_main.append(
+                [InlineKeyboardButton(
+                    f"Дневной {day_report[3]}:"+"".join(day_report[4].split("\n")[1].split(":")[1:]) + " \n".join(day_report[4].split("\n")[2:]),
+                    callback_data=f'{day_report[5]}_1_r'
+                )
+                ]
+            )
+
+        for week_report in week_chat_ids:
+            menu_main.append(
+                [InlineKeyboardButton(
+                    f"Недельный {week_report[3]}:" + "".join(week_report[4].split("\n")[1].split(":")[1:]) + " \n".join(
+                        week_report[4].split("\n")[2:]),
+                    callback_data=f'{week_report[5]}_2_r'
+                )
+                ]
+            )
+
+        for month_report in month_chat_ids:
+            menu_main.append(
+                [InlineKeyboardButton(
+                    f"Месячный {month_report[3]}:" + "".join(month_report[4].split("\n")[1].split(":")[1:]) + " \n".join(
+                        month_report[4].split("\n")[2:]),
+                    callback_data=f'{month_report[5]}_3_r'
+                )
+                ]
+            )
         if len(menu_main) > 0:
             reply_markup = InlineKeyboardMarkup(menu_main)
             update.message.reply_text('Выберите период отчета:', reply_markup=reply_markup, parse_mode='Markdown')
@@ -201,15 +225,12 @@ def menu_actions(update, bot):
     query = update.callback_query
 
     if query.data[-1] == 'r':
-        chat_id = str(query.from_user.id)
-
-        if query.data[0] == "1":
-            db_delete_day(chat_id)
-        elif query.data[0] == "2":
-            db_delete_week(chat_id)
+        if query.data[-3] == "1":
+            db_delete_by_period(query.data.split("_")[0], "days")
+        elif query.data[-3] == "2":
+            db_delete_by_period(query.data.split("_")[0], "weeks")
         else:
-            db_delete_month(chat_id)
-
+            db_delete_by_period(query.data.split("_")[0], "months")
         query.message.reply_text('Отчет удален', parse_mode='Markdown')
     if query.data[-1] == 'd':
         menu_main = [[InlineKeyboardButton('Разовый отчет',
@@ -220,21 +241,21 @@ def menu_actions(update, bot):
         query.edit_message_text('Выберите тип отчета:', reply_markup=reply_markup)
 
     if query.data == '1_d_reg':
-        if get_day_id(str(query.from_user.id)):
-            query.edit_message_text('За этот период отчет уже существует')
+        if len(get_day_ids(str(query.from_user.id))) >= 5:
+            query.edit_message_text('За этот период отчет уже существует 5 отчетов')
         else:
             reply_markup = InlineKeyboardMarkup(add_hour(query.data))
             query.edit_message_text('Выберите время отправки (час):', reply_markup=reply_markup)
 
     elif query.data == '2_d_reg':
-        if get_week_id(str(query.from_user.id)):
-            query.edit_message_text('За этот период отчет уже существует')
+        if len(get_week_ids(str(query.from_user.id))) >= 5:
+            query.edit_message_text('За этот период отчет уже существует 5 отчетов')
         else:
             reply_markup = InlineKeyboardMarkup(add_hour(query.data))
             query.edit_message_text('Выберите время отправки (час):', reply_markup=reply_markup)
     elif query.data == '3_d_reg':
-        if get_month_id(str(query.from_user.id)):
-            query.edit_message_text('За этот период отчет уже существует')
+        if len(get_month_ids(str(query.from_user.id))) >= 5:
+            query.edit_message_text('За этот период отчет уже существует 5 отчетов')
         else:
             reply_markup = InlineKeyboardMarkup(add_hour(query.data))
             query.edit_message_text('Выберите время отправки (час):', reply_markup=reply_markup)
@@ -244,7 +265,7 @@ def menu_actions(update, bot):
     elif query.data[-1] == 'n':
         user_id = get_user_id(str(query.from_user.id))
         reply_markup = get_objects(user_id, query.data)
-        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup,)
+        query.edit_message_text('Выберите объекты:', reply_markup=reply_markup, )
     elif query.data[-1] == 'p':
 
         # json_data = json.loads(str(update.effective_message.reply_markup).replace('"', "").replace("\'", '"'))
@@ -287,18 +308,19 @@ def menu_actions(update, bot):
                 thread = get_threads_by_id(int(user_id))
                 try:
                     report_text = f"Период: {title} \nТемы: {repost_teams}"
-
                     if data_split[0] == "1":
-                        db_save_day(chat_id, thread, references, time, report_text)
+                        uuid_id = db_save_day(chat_id, thread, references, time, report_text)
                     elif data_split[0] == "2":
-                        db_save_week(chat_id, thread, references, time, report_text)
+                        uuid_id = db_save_week(chat_id, thread, references, time, report_text)
                     else:
-                        db_save_month(chat_id, thread, references, time, report_text)
+                        uuid_id = db_save_month(chat_id, thread, references, time, report_text)
                     now = get_time_now()
-                    time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]), int(data_split[5]))
+                    time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]),
+                                                      int(data_split[5]))
                     if 0 < (time_datetime - get_time_now()).seconds < 300:
                         uri = URL % (period_s.get(data_split[0]), thread) + references
-                        threading.Thread(target=send_message_time, args=(uri, time_datetime, chat_id, report_text)).start()
+                        threading.Thread(target=send_message_time,
+                                         args=(uri, time_datetime, chat_id, report_text, uuid_id)).start()
                     text = f"*Отчет сохранен:* \n*Период*: {title} \n*Время*: {time} \n*Темы*: " + "\n".join(teams)
                     query.edit_message_text(text, parse_mode='Markdown')
                 except IntegrityError:
@@ -309,7 +331,8 @@ def menu_actions(update, bot):
                 report_text = f"Период: {period.get(period_)} \nТемы: {repost_teams}"
 
                 threading.Thread(target=send_message, args=(
-                    period_, teams, query.bot, query.message.chat_id, get_user_id(str(query.from_user.id)), report_text)).start()
+                    period_, teams, query.bot, query.message.chat_id, get_user_id(str(query.from_user.id)),
+                    report_text)).start()
         else:
             reply_markup = InlineKeyboardMarkup(update.effective_message.reply_markup["inline_keyboard"])
             query.edit_message_text(
@@ -431,18 +454,27 @@ def get_day_id(chat_id):
     return day[-1]
 
 
+def get_day_ids(chat_id):
+    conn = sqlite3.connect('database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    day = cursor.execute(f"select * from days WHERE `chat_id` = {chat_id}").fetchall()
+    return day
+
+
 def db_save_day(chat_id, thread_id, references, time, reporttext):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO days (chat_id, thread_id, refer, time, reporttext) VALUES (?, ?, ?, ?, ?)',
-                   (chat_id, thread_id, references, time, reporttext))
+    uuid_id = str(uuid.uuid4()).replace('-', "")
+    cursor.execute('INSERT INTO days (chat_id, thread_id, refer, time, reporttext, uuid) VALUES (?, ?, ?, ?, ?, ?)',
+                   (chat_id, thread_id, references, time, reporttext, uuid_id))
     conn.commit()
+    return uuid_id
 
-
-def db_delete_day(chat_id):
+def db_delete_by_period(query, period):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute(f'DELETE FROM days WHERE chat_id={chat_id}')
+    cursor.execute(
+        f"DELETE FROM {period} WHERE uuid='{query}'")
     conn.commit()
 
 
@@ -454,21 +486,22 @@ def get_month_id(chat_id):
         return None
     return month[-1]
 
+def get_month_ids(chat_id):
+    conn = sqlite3.connect('database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    month = cursor.execute(f"select * from months WHERE `chat_id` = {chat_id}").fetchall()
+    return month
+
 
 def db_save_month(chat_id, thread_id, references, time, reporttext):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO months (chat_id, thread_id, refer, time, reporttext) VALUES (?, ?, ?, ?, ?)',
-                   (chat_id, thread_id, references, time, reporttext))
+    uuid_id = str(uuid.uuid4()).replace('-', "")
+
+    cursor.execute('INSERT INTO months (chat_id, thread_id, refer, time, reporttext, uuid) VALUES (?, ?, ?, ?, ?, ?)',
+                   (chat_id, thread_id, references, time, reporttext, uuid_id))
     conn.commit()
-
-
-def db_delete_month(chat_id):
-    conn = sqlite3.connect('database.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute(f'DELETE FROM months WHERE chat_id={chat_id}')
-    conn.commit()
-
+    return uuid_id
 
 def get_week_id(chat_id):
     conn = sqlite3.connect('database.db', check_same_thread=False)
@@ -478,20 +511,29 @@ def get_week_id(chat_id):
         return None
     return week[-1]
 
-
-def db_delete_week(chat_id):
+def get_week_ids(chat_id):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute(f'DELETE FROM weeks WHERE chat_id={chat_id}')
+    week = cursor.execute(f"select * from weeks WHERE `chat_id` = {chat_id}").fetchall()
+    return week
+
+
+def db_delete_period(chat_id, period):
+    conn = sqlite3.connect('database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute(f'DELETE FROM {period} WHERE chat_id={chat_id}')
     conn.commit()
 
 
 def db_save_week(chat_id, thread_id, references, time, reporttext):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO weeks (chat_id, thread_id, refer, time, reporttext) VALUES (?, ?, ?, ?, ?)',
-                   (chat_id, thread_id, references, time, reporttext))
+    uuid_id = str(uuid.uuid4()).replace('-', "")
+
+    cursor.execute('INSERT INTO weeks (chat_id, thread_id, refer, time, reporttext, uuid) VALUES (?, ?, ?, ?, ?, ?)',
+                   (chat_id, thread_id, references, time, reporttext, uuid_id))
     conn.commit()
+    return uuid_id
 
 
 def check_and_send_message(now, d, period):
@@ -500,16 +542,17 @@ def check_and_send_message(now, d, period):
     if 0 < (time - now).seconds < 300:
         uri = URL % (period, d[1]) + d[2]
         print(uri)
-        threading.Thread(target=send_message_time, args=(uri, time, int(d[0]), d[4])).start()
+        threading.Thread(target=send_message_time, args=(uri, time, int(d[0]), d[4], d[5])).start()
 
 
-def send_message_time(uri, time_, chat_id, report_text):
+def send_message_time(uri, time_, chat_id, report_text, uuid):
     try:
         print(uri)
         print(time_)
         i, file_name = get_report(uri)
-        sleep_time = (time_ - get_time_now()).seconds + 5
-        if sleep_time > 0:
+        now_t = get_time_now()
+        sleep_time = (time_ - now_t).seconds + 5
+        if sleep_time > 0 and time_ > now_t:
             time.sleep(sleep_time)
         print("send" + str(uri))
         updater.bot.send_document(chat_id=chat_id,
@@ -540,6 +583,7 @@ def send_messages_time():
     except Exception as e:
         print("send_messages_time" + str(e))
 
+
 # schedule.every(5).minutes.do(send_messages_time)
 
 
@@ -557,9 +601,10 @@ def start_schedule():
 
 def get_time_now():
     # return datetime.datetime.now(pytz.timezone('Etc/GMT-3'))
-    return datetime.datetime.now() + datetime.timedelta(hours=3)
+    return datetime.datetime.now() + datetime.timedelta(hours=0)
 
-updater = Updater('5001761976:AAFuf6iYpdM7hGDcrPpXuNGRSL3tN7FU76Q')
+
+updater = Updater('5761570096:AAFqWbshvEvG8tj-hEcPdtIfQ37WYtfQN2A')
 
 if __name__ == '__main__':
 
