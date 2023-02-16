@@ -271,7 +271,7 @@ def menu_actions(update, bot):
         query.edit_message_text('Выберите время отправки (минуту):', reply_markup=reply_markup)
     elif query.data[-1] == 'z':
         if "2_d_reg" in query.data:
-            text_w = "один раз неделю"
+            text_w = "один раз в неделю"
         elif "3_d_reg" in query.data:
             text_w = "один раз в месяц"
         menu_main = [[InlineKeyboardButton('Присылать каждый день',
