@@ -6,6 +6,7 @@ from io import BytesIO
 import sqlite3
 import datetime
 from sqlite3 import IntegrityError
+from calendar import monthrange
 
 import pytz
 import requests
@@ -218,7 +219,11 @@ def add_minutes(m):
             res_min = min
             if len(min) == 1:
                 res_min = "0" + res_min
-            row.append(InlineKeyboardButton(res_min, callback_data=f'{m}_{res_min}_min'))
+            if "1_d_reg" in m:
+                callback_data_t = f'{m}_{res_min}_min_z_w_n'
+            else:
+                callback_data_t =  f'{m}_{res_min}_min_z'
+            row.append(InlineKeyboardButton(res_min, callback_data=callback_data_t))
         menu_main.append(row)
     return menu_main
 
@@ -264,6 +269,18 @@ def menu_actions(update, bot):
     elif query.data[-1] == 'h':
         reply_markup = InlineKeyboardMarkup(add_minutes(query.data))
         query.edit_message_text('Выберите время отправки (минуту):', reply_markup=reply_markup)
+    elif query.data[-1] == 'z':
+        if "2_d_reg" in query.data:
+            text_w = "один раз неделю"
+        elif "3_d_reg" in query.data:
+            text_w = "один раз в месяц"
+        menu_main = [[InlineKeyboardButton('Присылать каждый день',
+                                           callback_data=f'{query.data}_w_n')],
+                     [InlineKeyboardButton(f'Присылать {text_w}', callback_data=f'{query.data}_y_n')],
+                     ]
+        reply_markup = InlineKeyboardMarkup(menu_main)
+        query.edit_message_text('Выберите тип отчета:', reply_markup=reply_markup)
+
     elif query.data[-1] == 'n':
         user_id = get_user_id(str(query.from_user.id))
         reply_markup = get_objects(user_id, query.data)
@@ -313,9 +330,9 @@ def menu_actions(update, bot):
                     if data_split[0] == "1":
                         uuid_id = db_save_day(chat_id, thread, references, time, report_text)
                     elif data_split[0] == "2":
-                        uuid_id = db_save_week(chat_id, thread, references, time, report_text)
+                        uuid_id = db_save_week(chat_id, thread, references, time, report_text, '_w_n' in query.data)
                     else:
-                        uuid_id = db_save_month(chat_id, thread, references, time, report_text)
+                        uuid_id = db_save_month(chat_id, thread, references, time, report_text, '_w_n' in query.data)
                     now = get_time_now()
                     time_datetime = datetime.datetime(now.year, now.month, now.day, int(data_split[3]),
                                                       int(data_split[5]))
@@ -495,13 +512,13 @@ def get_month_ids(chat_id):
     return month
 
 
-def db_save_month(chat_id, thread_id, references, time, reporttext):
+def db_save_month(chat_id, thread_id, references, time, reporttext, often):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
     uuid_id = str(uuid.uuid4()).replace('-', "")
 
-    cursor.execute('INSERT INTO months (chat_id, thread_id, refer, time, reporttext, uuid) VALUES (?, ?, ?, ?, ?, ?)',
-                   (chat_id, thread_id, references, time, reporttext, uuid_id))
+    cursor.execute('INSERT INTO months (chat_id, thread_id, refer, time, reporttext, uuid, regular, often) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                   (chat_id, thread_id, references, time, reporttext, uuid_id, get_time_now().day, int(often)))
     conn.commit()
     return uuid_id
 
@@ -527,19 +544,23 @@ def db_delete_period(chat_id, period):
     conn.commit()
 
 
-def db_save_week(chat_id, thread_id, references, time, reporttext):
+def db_save_week(chat_id, thread_id, references, time, reporttext, often):
     conn = sqlite3.connect('database.db', check_same_thread=False)
     cursor = conn.cursor()
     uuid_id = str(uuid.uuid4()).replace('-', "")
 
-    cursor.execute('INSERT INTO weeks (chat_id, thread_id, refer, time, reporttext, uuid) VALUES (?, ?, ?, ?, ?, ?)',
-                   (chat_id, thread_id, references, time, reporttext, uuid_id))
+    cursor.execute('INSERT INTO weeks (chat_id, thread_id, refer, time, reporttext, uuid, regular, often) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                   (chat_id, thread_id, references, time, reporttext, uuid_id, get_time_now().weekday(), int(often)))
     conn.commit()
     return uuid_id
 
 
 def check_and_send_message(now, d, period):
     h_r = d[3].split(":")
+    if period == "week" and (d[7] == 0 or d[6] != get_time_now().weekday()):
+        return
+    if period == "month" and (d[7] == 0 or (d[6] != get_time_now().day and d[6] < monthrange(get_time_now().year, get_time_now().month)[1])):
+        return
     time = datetime.datetime(now.year, now.month, now.day, int(h_r[0]), int(h_r[1]))
     if 0 < (time - now).seconds < 300:
         uri = URL % (period, d[1]) + d[2]
@@ -590,7 +611,7 @@ def send_messages_time():
 
 
 def start_schedule():
-    time.sleep(305 - int(get_time_now().timestamp()) % 300)
+    # time.sleep(305 - int(get_time_now().timestamp()) % 300)
     print(get_time_now())
     while True:
         try:
